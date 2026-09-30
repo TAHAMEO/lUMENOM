@@ -662,7 +662,7 @@ export function buildExterior(loops) {
     const NP = 20;
     for (let i = 0; i <= NX; i++) {
       const t = i / NX;
-      const x = 0.86 + t * 0.2;
+      const x = 0.855 + t * 0.155;
       // grows toward the outer end, then rounds off at the tip
       const tip = Math.sqrt(Math.max(0, 1 - Math.max(0, (t - 0.82) / 0.18) ** 2));
       const h = (0.078 + 0.036 * Math.sin(Math.min(1, t * 1.25) * Math.PI * 0.5)) * (0.25 + 0.75 * tip);
@@ -685,7 +685,7 @@ export function buildExterior(loops) {
     housing.computeVertexNormals();
     const hMesh = merge([housing, capFan(secs[NX])]);
     // one transform for housing, glass and indicator: toe the mirror in about its own centre
-    const pivot = new THREE.Vector3(0.96, 0.965, zg);
+    const pivot = new THREE.Vector3(0.935, 0.965, zg);
     const M = new THREE.Matrix4()
       .makeTranslation(pivot.x, pivot.y, pivot.z + 0.012)
       .multiply(new THREE.Matrix4().makeRotationY(-0.12))
@@ -693,16 +693,16 @@ export function buildExterior(loops) {
     hMesh.applyMatrix4(M);
     out.paint.push(bothSides(hMesh));
     const glass = new THREE.CircleGeometry(1, 32);
-    glass.scale(0.084, 0.042, 1);
+    glass.scale(0.066, 0.042, 1);
     glass.rotateY(Math.PI);
-    glass.translate(0.968, 0.967, zg - 0.0015);
+    glass.translate(0.94, 0.967, zg - 0.0015);
     glass.applyMatrix4(M);
     out.mirrorGlass.push(bothSides(glass));
     // indicator strip along the lower front edge of the housing
     const ind = [];
     for (let i = 0; i <= 12; i++) {
       const t = 0.12 + (i / 12) * 0.7;
-      const x = 0.86 + t * 0.2;
+      const x = 0.855 + t * 0.155;
       const h = 0.078 + 0.036 * Math.sin(Math.min(1, t * 1.25) * Math.PI * 0.5);
       const d = 0.052 + 0.022 * t;
       const phi = -1.0;

@@ -14,6 +14,8 @@ const params = new URLSearchParams(location.search);
 const shots = params.get('shots');
 const mask = params.get('mask') === '1';
 const spacing = params.get('spacing') ? Number(params.get('spacing')) : undefined;
+// phones and tablets get the lighter mesh
+const quality = params.get('q') || (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches ? 'medium' : 'high');
 const harness = !!(shots || params.get('w'));
 const inViewer = typeof window.claude !== 'undefined';
 
@@ -161,7 +163,7 @@ function placeCar(model) {
 }
 
 function swapCar() {
-  const next = new SLKModel({ color: paint.color, metallic: !!paint.metallic, spacing, drive });
+  const next = new SLKModel({ color: paint.color, metallic: !!paint.metallic, spacing, quality, drive });
   if (car) scene.remove(car.root);
   car = next;
   placeCar(car);
@@ -187,6 +189,7 @@ async function boot() {
   const step = $('loader-step');
   await prepareSLK({
     spacing,
+    quality,
     drive,
     onProgress: (label, p) => {
       step.textContent = label;
@@ -357,7 +360,7 @@ function setupUI() {
     if (!b || b.dataset.v === drive) return;
     drive = b.dataset.v;
     markDrive();
-    await prepareSLK({ spacing, drive });
+    await prepareSLK({ spacing, quality, drive });
     swapCar();
   });
 
