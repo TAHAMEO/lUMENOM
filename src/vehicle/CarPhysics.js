@@ -194,9 +194,10 @@ export class CarPhysics {
    * env.ground(x, z, out) → fills out.h (height), out.surface (SURFACES key); returns out.
    */
   step(dt, input, env) {
+    this.events.length = 0;
+    if (!(dt > 0)) return; // zero-length frames would divide by zero below
     const s = this.spec;
     const g = 9.81;
-    this.events.length = 0;
 
     // ------------------------------------------------------------------ ground
     const wp = this._wp || (this._wp = [[0, 0], [0, 0], [0, 0], [0, 0]]);

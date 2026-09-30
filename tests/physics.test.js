@@ -97,6 +97,14 @@ describe('CarPhysics', () => {
     expect(car.forwardSpeed).toBeGreaterThan(15);
   });
 
+  it('ignores zero-length steps instead of producing NaN', () => {
+    const car = new CarPhysics();
+    car.vz = 30;
+    car.step(0, { throttle: 1 }, flat);
+    car.step(DT, { throttle: 1 }, flat);
+    expect(Number.isFinite(car.y) && Number.isFinite(car.vy) && Number.isFinite(car.z)).toBe(true);
+  });
+
   it('burns nitro for extra speed and regenerates it slowly', () => {
     const a = new CarPhysics();
     const b = new CarPhysics();

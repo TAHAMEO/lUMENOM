@@ -377,7 +377,8 @@ export class Game {
     this.time += dt;
     const input = this.input.update();
     this._handleActions();
-    if (!this.paused) this._simulate(dt, input);
+    // two animation frames can share a timestamp; never simulate a zero step
+    if (!this.paused && dt > 0) this._simulate(dt, input);
     this._updateVisuals(dt);
     this._render(dt);
     for (const car of this.cars) {
