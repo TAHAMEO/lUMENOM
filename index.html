@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Lumenom Racer</title>
+    <meta name="description" content="A high-fidelity 3D racing game that runs in your browser." />
+    <meta name="theme-color" content="#0b0f17" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f17'/%3E%3Cpath d='M14 44 L30 16 H38 L26 38 H50 L46 44 Z' fill='%23ffb21a'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Chivo+Mono:wght@400;600&family=Saira+Semi+Condensed:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene" aria-label="Racing scene"></canvas>
+
+      <!-- Loading -->
+      <section id="loading" class="screen loading">
+        <div class="loading__inner">
+          <div class="wordmark" aria-label="Lumenom">LUMENOM</div>
+          <div class="loading__track">LUMENOM RING · 3.15 KM</div>
+          <div class="loading__bar"><span id="loading-fill"></span></div>
+          <div class="loading__status"><span id="loading-status">Starting engine</span><span id="loading-pct">0%</span></div>
+        </div>
+      </section>
+
+      <!-- Main menu -->
+      <section id="menu" class="screen menu" hidden>
+        <div class="menu__panel">
+          <header class="menu__brand">
+            <div class="wordmark wordmark--menu">LUMENOM</div>
+            <div class="menu__sub">Racing <span class="dot"></span> Lumenom Ring</div>
+          </header>
+
+          <nav class="modes" aria-label="Game modes">
+            <button class="mode" data-mode="race" id="btn-race">
+              <span class="mode__name">Race</span>
+              <span class="mode__meta" id="meta-race">3 laps against 5 rivals</span>
+            </button>
+            <button class="mode" data-mode="timetrial" id="btn-tt">
+              <span class="mode__name">Time Trial</span>
+              <span class="mode__meta" id="meta-tt">Set a lap, then chase your ghost</span>
+            </button>
+            <button class="mode" data-mode="free" id="btn-free">
+              <span class="mode__name">Free Drive</span>
+              <span class="mode__meta">Open track with drift scoring</span>
+            </button>
+          </nav>
+
+          <div class="garage">
+            <div class="label">Paint</div>
+            <div class="swatches" id="swatches" role="radiogroup" aria-label="Paint colour"></div>
+            <div class="label">Wheels</div>
+            <div class="chips" id="rims" role="radiogroup" aria-label="Wheel finish"></div>
+          </div>
+
+          <div class="menu__actions">
+            <button class="ghost-btn" id="btn-settings">Settings</button>
+            <button class="ghost-btn" id="btn-controls">Controls</button>
+          </div>
+        </div>
+
+        <aside class="trackcard" aria-label="Circuit information">
+          <div class="trackcard__title">Lumenom Ring</div>
+          <dl class="trackcard__stats">
+            <div><dt>Length</dt><dd id="stat-length">3.15 km</dd></div>
+            <div><dt>Corners</dt><dd id="stat-corners">13</dd></div>
+            <div><dt>Elevation</dt><dd id="stat-elev">28 m</dd></div>
+            <div><dt>Lap record</dt><dd id="stat-record">—</dd></div>
+          </dl>
+          <canvas id="trackmap" width="240" height="160" aria-hidden="true"></canvas>
+        </aside>
+      </section>
+
+      <!-- Settings sheet -->
+      <section id="settings" class="sheet" hidden aria-label="Settings">
+        <div class="sheet__panel">
+          <header class="sheet__head">
+            <h2>Settings</h2>
+            <button class="icon-btn" id="settings-close" aria-label="Close settings">✕</button>
+          </header>
+          <div class="field">
+            <div class="label">Time of day</div>
+            <div class="segmented" id="set-tod" role="radiogroup">
+              <button data-v="sunset">Sunset</button>
+              <button data-v="day">Midday</button>
+              <button data-v="night">Night</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Graphics</div>
+            <div class="segmented" id="set-quality" role="radiogroup">
+              <button data-v="low">Low</button>
+              <button data-v="medium">Medium</button>
+              <button data-v="high">High</button>
+              <button data-v="ultra">Ultra</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Rival pace</div>
+            <div class="segmented" id="set-difficulty" role="radiogroup">
+              <button data-v="easy">Easy</button>
+              <button data-v="medium">Medium</button>
+              <button data-v="hard">Hard</button>
+            </div>
+          </div>
+          <div class="field field--row">
+            <div>
+              <div class="label">Laps</div>
+              <div class="stepper" id="set-laps"><button data-d="-1" aria-label="Fewer laps">−</button><output>3</output><button data-d="1" aria-label="More laps">+</button></div>
+            </div>
+            <div>
+              <div class="label">Rivals</div>
+              <div class="stepper" id="set-opp"><button data-d="-1" aria-label="Fewer rivals">−</button><output>5</output><button data-d="1" aria-label="More rivals">+</button></div>
+            </div>
+          </div>
+          <div class="field field--row">
+            <div>
+              <div class="label">Speed units</div>
+              <div class="segmented" id="set-units" role="radiogroup">
+                <button data-v="kmh">km/h</button>
+                <button data-v="mph">mph</button>
+              </div>
+            </div>
+            <div class="grow">
+              <label class="label" for="set-volume">Volume</label>
+              <input id="set-volume" type="range" min="0" max="1" step="0.05" value="0.8" />
+            </div>
+          </div>
+          <label class="check"><input type="checkbox" id="set-fps" /> Show frame rate</label>
+        </div>
+      </section>
+
+      <!-- Controls overlay -->
+      <section id="controls" class="sheet" hidden aria-label="Controls">
+        <div class="sheet__panel sheet__panel--wide">
+          <header class="sheet__head">
+            <h2>Controls</h2>
+            <button class="icon-btn" id="controls-close" aria-label="Close controls">✕</button>
+          </header>
+          <div class="controls-grid">
+            <div><kbd>W</kbd><kbd>↑</kbd><span>Throttle</span></div>
+            <div><kbd>S</kbd><kbd>↓</kbd><span>Brake · hold to reverse</span></div>
+            <div><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd><span>Steer</span></div>
+            <div><kbd>Space</kbd><span>Handbrake · start a drift</span></div>
+            <div><kbd>Shift</kbd><span>Nitro</span></div>
+            <div><kbd>C</kbd><span>Change camera</span></div>
+            <div><kbd>R</kbd><span>Reset to track</span></div>
+            <div><kbd>Esc</kbd><span>Pause</span></div>
+            <div><kbd>M</kbd><span>Mute</span></div>
+            <div><kbd>H</kbd><span>Hide HUD</span></div>
+          </div>
+          <p class="note">Gamepads work too: right trigger to accelerate, left trigger to brake, A for handbrake, X for nitro, Y for camera.</p>
+          <p class="note">Drift through corners and tuck in behind rivals to refill nitro.</p>
+        </div>
+      </section>
+
+      <!-- HUD -->
+      <section id="hud" class="hud" hidden>
+        <div class="hud__tl">
+          <div class="pos" id="hud-pos-block">
+            <div class="pos__num"><span id="hud-pos">1</span><small id="hud-pos-of">/6</small></div>
+            <div class="pos__meta">
+              <div class="kv"><span>Lap</span><b id="hud-lap">1/3</b></div>
+              <div class="kv"><span>Race</span><b id="hud-race">00:00.000</b></div>
+            </div>
+          </div>
+          <ol class="tower" id="hud-tower" aria-label="Running order"></ol>
+        </div>
+
+        <div class="hud__tr">
+          <canvas id="hud-map" width="220" height="220" aria-label="Track map"></canvas>
+        </div>
+
+        <div class="hud__bl">
+          <div class="laps">
+            <div class="laps__row laps__row--now"><span>Lap</span><b id="hud-lap-time">00:00.000</b></div>
+            <div class="laps__row"><span>Last</span><b id="hud-last">--:--.---</b></div>
+            <div class="laps__row"><span>Best</span><b id="hud-best">--:--.---</b></div>
+            <div class="sectors" id="hud-sectors"><i></i><i></i><i></i></div>
+            <div class="delta" id="hud-delta" hidden>+0.000</div>
+          </div>
+          <div class="drift-total" id="hud-drift-total" hidden><span>Drift</span><b id="hud-drift-sum">0</b></div>
+        </div>
+
+        <div class="hud__br">
+          <canvas id="hud-tach" width="300" height="300" aria-label="Speed and revs"></canvas>
+        </div>
+
+        <div class="banner" id="hud-banner" aria-live="polite"></div>
+        <div class="lights" id="hud-lights" hidden><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="bigtext" id="hud-bigtext" aria-live="assertive"></div>
+        <div class="drift" id="hud-drift" hidden>
+          <div class="drift__mult" id="hud-drift-mult">×1</div>
+          <div class="drift__pts" id="hud-drift-pts">0</div>
+          <div class="drift__label">Drift</div>
+        </div>
+        <div class="wrongway" id="hud-wrong" hidden>Wrong way</div>
+        <div class="fps" id="hud-fps" hidden>60 fps</div>
+        <button class="pause-btn" id="btn-pause" aria-label="Pause">❚❚</button>
+      </section>
+
+      <!-- Touch controls -->
+      <section id="touch" class="touch" hidden>
+        <div class="touch__left">
+          <button data-k="left" aria-label="Steer left">◀</button>
+          <button data-k="right" aria-label="Steer right">▶</button>
+        </div>
+        <div class="touch__right">
+          <button data-k="nitro" class="t-nitro" aria-label="Nitro">N₂O</button>
+          <button data-k="handbrake" class="t-hb" aria-label="Handbrake">HB</button>
+          <button data-k="brake" class="t-brake" aria-label="Brake">BRAKE</button>
+          <button data-k="throttle" class="t-gas" aria-label="Throttle">GAS</button>
+        </div>
+      </section>
+
+      <!-- Pause -->
+      <section id="pause" class="sheet" hidden aria-label="Paused">
+        <div class="sheet__panel sheet__panel--narrow">
+          <h2 class="pause__title">Paused</h2>
+          <div class="stack">
+            <button class="primary" id="btn-resume">Resume</button>
+            <button class="ghost-btn" id="btn-restart">Restart</button>
+            <button class="ghost-btn" id="btn-pause-settings">Settings</button>
+            <button class="ghost-btn" id="btn-quit">Quit to menu</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section id="results" class="sheet" hidden aria-label="Results">
+        <div class="sheet__panel sheet__panel--wide results">
+          <div class="results__head">
+            <div class="results__place" id="res-place">1<small>ST</small></div>
+            <div>
+              <h2 id="res-title">Race classification</h2>
+              <p class="muted" id="res-sub">Lumenom Ring · 3 laps</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="results__table">
+              <thead><tr><th>Pos</th><th>Driver</th><th>Time</th><th>Best lap</th></tr></thead>
+              <tbody id="res-body"></tbody>
+            </table>
+          </div>
+          <div class="results__actions">
+            <button class="primary" id="btn-again">Race again</button>
+            <button class="ghost-btn" id="btn-menu">Main menu</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="error" class="screen error" hidden>
+        <div>
+          <div class="wordmark wordmark--small">LUMENOM</div>
+          <p id="error-text">This browser can't start WebGL 2, which the game needs.</p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
