@@ -688,9 +688,17 @@ export function buildProps(track, terrain, mats) {
     }
     for (const [lat, sgn] of [[bl, 1], [br, -1]]) {
       const towerH = deckY + 5;
-      const tower = new THREE.Mesh(new THREE.BoxGeometry(3.2, towerH, 3.6), standMat);
-      tower.position.set(sgn * lat + sgn * 1.2, deckY + 1 - towerH / 2, 0);
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(2.2, towerH, 2.6), steel);
+      tower.position.set(sgn * lat + sgn * 0.9, deckY + 1 - towerH / 2, 0);
       bridge.add(tower);
+      // glazed stairwell face toward the track
+      const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.6, deckY - 1),
+        new THREE.MeshStandardMaterial({ color: 0x1b2533, roughness: 0.15, metalness: 0.6 }),
+      );
+      glass.position.set(sgn * lat + sgn * 0.9 - sgn * 1.11, (deckY - 1) / 2 + 0.6, 0);
+      glass.rotation.y = sgn > 0 ? -Math.PI / 2 : Math.PI / 2;
+      bridge.add(glass);
       const g = terrain.heightAt(f.x + f.lx * (lat + 1.2) * sgn, f.z + f.lz * (lat + 1.2) * sgn);
       exclusions.push({ x: f.x + f.lx * (lat + 1.2) * sgn, z: f.z + f.lz * (lat + 1.2) * sgn, r: 6, g });
     }

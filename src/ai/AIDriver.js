@@ -40,11 +40,13 @@ export class AIDriver {
     if (racing) this.raceTime += dt;
     else this.raceTime = 0;
     if (racing && this.raceTime < this.launchDelay) {
-      input.throttle = 0;
+      input.hold = true;
+      input.throttle = 0.6; // revving on the line
       input.brake = 1;
       input.steer = 0;
       return;
     }
+    input.hold = !racing;
     if (!racing) {
       input.throttle = 0;
       input.brake = 1;

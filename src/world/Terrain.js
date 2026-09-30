@@ -114,9 +114,9 @@ export class Terrain {
       // Domain-warped ridges give continuous ranges instead of isolated spikes.
       const wx = x + 380 * this.noise2(x / 1700 + 3.1, z / 1700 - 1.7);
       const wz = z + 380 * this.noise2(x / 1700 - 7.3, z / 1700 + 4.9);
-      const ridge = ridged(this.noise3, wx / 1500, wz / 1500, 4, 2.0, 0.42);
+      const ridge = ridged(this.noise3, wx / 1600, wz / 1600, 3, 2.0, 0.42);
       const massif = fbm(n, x / 800 + 17, z / 800 - 5, 4) * 0.5 + 0.5;
-      h += m * (40 + 330 * Math.pow(ridge, 1.35) + 110 * massif);
+      h += m * (45 + 300 * Math.pow(ridge, 1.6) + 130 * massif);
     }
     // Infield lake basin with an irregular shoreline.
     const L = this.lake;
@@ -165,6 +165,34 @@ export class Terrain {
         H[k] = lerp(hv, nat, b);
         near[k] = b;
       }
+    }
+    // Soften distant mountains: the coarse outer grid turns ridged crests into
+    // spikes, so blur heights where the mountain mask dominates.
+    const weight = new Float32Array(nx * nz);
+    for (let j = 0; j < nz; j++) {
+      for (let i = 0; i < nx; i++) {
+        const rc = Math.hypot((xs[i] - t.centerX) / 1.15, zs[j] - t.centerZ);
+        weight[j * nx + i] = smoothstep(900, 1500, rc);
+      }
+    }
+    const tmp = new Float32Array(nx * nz);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let j = 0; j < nz; j++) {
+        for (let i = 0; i < nx; i++) {
+          const k = j * nx + i;
+          if (weight[k] <= 0) {
+            tmp[k] = H[k];
+            continue;
+          }
+          const a = H[j * nx + Math.max(0, i - 1)];
+          const b = H[j * nx + Math.min(nx - 1, i + 1)];
+          const c = H[Math.max(0, j - 1) * nx + i];
+          const d = H[Math.min(nz - 1, j + 1) * nx + i];
+          const blurred = (H[k] * 2 + a + b + c + d) / 6;
+          tmp[k] = H[k] + (blurred - H[k]) * weight[k];
+        }
+      }
+      H.set(tmp);
     }
     this.H = H;
     this.nearMask = near;

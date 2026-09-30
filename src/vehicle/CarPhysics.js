@@ -248,7 +248,9 @@ export class CarPhysics {
     const wasGrounded = this.grounded;
     this.vy -= g * dt;
     this.y += this.vy * dt;
-    if (this.y <= hC + 0.002) {
+    // Snap only on actual penetration: any tolerance here would re-glue the car
+    // to a crest that falls away faster than gravity and it could never take off.
+    if (this.y <= hC) {
       if (!wasGrounded) {
         const impact = groundVy - this.vy;
         if (impact > 1.2) {
@@ -285,9 +287,15 @@ export class CarPhysics {
     let throttleIn = clamp(input.throttle || 0, 0, 1);
     let brakeIn = clamp(input.brake || 0, 0, 1);
     const handbrake = input.handbrake ? 1 : 0;
+    // hold: parked on the grid / in menus — brakes on, clutch out, engine can rev
+    const hold = !!input.hold;
+    if (hold) {
+      this.reverse = false;
+      brakeIn = 1;
+    }
 
     // Reverse logic: hold brake at a standstill to reverse; throttle cancels.
-    if (!this.reverse && brakeIn > 0.5 && throttleIn < 0.1 && vF < 0.6) this.reverse = true;
+    if (!hold && !this.reverse && brakeIn > 0.5 && throttleIn < 0.1 && vF < 0.6) this.reverse = true;
     if (this.reverse && (throttleIn > 0.1 || vF > 1.5)) this.reverse = false;
     let driveIn = throttleIn;
     if (this.reverse) {
@@ -344,13 +352,14 @@ export class CarPhysics {
     const cut = this.shiftTimer > 0 ? 0.15 : 1;
     const torque = this.torqueAt(this.rpm) * this.throttle * limiter * cut;
     let drive = (torque * ratio * s.finalDrive * s.drivetrainEfficiency) / r;
+    if (hold) drive = 0;
     if (this.reverse) drive = -Math.min(drive, 5200);
     // engine braking when off throttle
     if (!this.reverse && this.throttle < 0.05 && Math.abs(vF) > 1) {
       drive -= Math.sign(vF) * s.engineBraking * (this.rpm / s.redline);
     }
     // nitro
-    const wantNitro = !!input.nitro && this.nitro > 0.01 && throttleIn > 0.2 && !this.reverse;
+    const wantNitro = !!input.nitro && this.nitro > 0.01 && throttleIn > 0.2 && !this.reverse && !hold;
     if (wantNitro !== this.nitroActive) this.events.push({ type: wantNitro ? 'nitroOn' : 'nitroOff' });
     this.nitroActive = wantNitro;
     if (wantNitro) {

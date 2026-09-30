@@ -216,6 +216,7 @@ export class Game {
     this.player.placeAt(slots[opp]);
     this.player.color = this._paint();
     for (const car of this.cars) {
+      car.input.hold = true;
       car.input.throttle = 0;
       car.input.brake = 1;
       car.input.steer = 0;
@@ -446,13 +447,15 @@ export class Game {
     const p = this.player;
     const pin = p.input;
     if (this.state === 'race' && race.state === 'countdown') {
-      // hold on the brakes; throttle revs the engine on the line
+      // held on the line; throttle revs the engine
+      pin.hold = true;
       pin.throttle = input.throttle;
       pin.brake = 1;
       pin.steer = 0;
-      pin.handbrake = true;
+      pin.handbrake = false;
       pin.nitro = false;
     } else if (racing && !this.autopilot) {
+      pin.hold = false;
       pin.throttle = input.throttle;
       pin.brake = input.brake;
       pin.steer = input.steer;
@@ -460,12 +463,13 @@ export class Game {
       pin.nitro = input.nitro;
       pin.analogSteer = input.analogSteer;
     } else if (!this.autopilot) {
+      pin.hold = true;
       pin.throttle = 0;
       pin.brake = 1;
       pin.steer = 0;
       pin.handbrake = false;
       pin.nitro = false;
-    }
+    } else pin.hold = false;
     const steps = Math.max(1, Math.ceil(dt / STEP - 1e-6));
     const h = dt / steps;
     const cars = this.cars;
