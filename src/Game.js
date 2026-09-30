@@ -6,6 +6,8 @@ import { installFogPatch } from './world/fogPatch.js';
 import { World } from './world/World.js';
 import { createShadowBlobTexture, setMaxAnisotropy } from './world/textures.js';
 import { Car } from './vehicle/Car.js';
+import { bodyOf } from './vehicle/bodies.js';
+import { prepareSLK } from './vehicle/slk/SLKModel.js';
 import { PAINTS } from './vehicle/CarModel.js';
 import { WheelInstances } from './vehicle/WheelInstances.js';
 import { AIDriver, AI_CAPABILITY } from './ai/AIDriver.js';
@@ -76,21 +78,15 @@ export class Game {
     const track = (this.track = this.world.track);
     track.computeSpeedProfile(AI_CAPABILITY);
 
+    if (bodyOf(this.settings.car).id === 'slk') {
+      progress(0.95, 'Building the SLK 200');
+      await prepareSLK({ quality: 'medium' });
+    }
     progress(0.96, 'Rolling out the cars');
     await new Promise((r) => setTimeout(r, 0));
     this.shadowTex = createShadowBlobTexture();
     this.wheels = new WheelInstances(this.scene, RIVALS.length + 1);
-    this.player = this._makeCar({
-      id: 0,
-      name: 'You',
-      code: 'YOU',
-      color: this._paint(),
-      rim: this.settings.rim,
-      caliper: '#d11a1a',
-      wing: true,
-      plate: 'LMN 01',
-      isPlayer: true,
-    });
+    this.player = this._makeCar(this._playerOptions(this.settings.car));
     this.playerAI = new AIDriver(this.player, track, { skill: 0.9, seed: 99 });
     this.rivalCars = [];
     this.ais = [];
@@ -111,6 +107,7 @@ export class Game {
     this.audio.volume = this.settings.volume;
     this.race = new RaceManager(track);
     this.ghost = new Ghost(this.scene);
+    this.ghost.setBody(bodyOf(this.settings.car).id);
     this.ghost.load(this.records.ghost);
     this.race.bestLap = this.records.bestLap ?? null;
     this.post = new PostFX(renderer, this.scene, this.camera);
@@ -154,6 +151,50 @@ export class Game {
     return (PAINTS.find((p) => p.id === this.settings.paint) || PAINTS[0]).color;
   }
 
+  _playerOptions(body) {
+    return {
+      id: 0,
+      name: 'You',
+      code: 'YOU',
+      color: this._paint(),
+      rim: this.settings.rim,
+      caliper: '#d11a1a',
+      wing: true,
+      plate: 'LMN 01',
+      body: bodyOf(body).id,
+      isPlayer: true,
+    };
+  }
+
+  /** Swap the player's car body (menu only). Builds the SLK geometry on first use. */
+  async setPlayerBody(id) {
+    const body = bodyOf(id);
+    if (this.player.body.id === body.id || this._bodySwap) return;
+    this._bodySwap = true;
+    this.menu.setCarBusy?.(body.id, true);
+    try {
+      if (body.id === 'slk') await prepareSLK({ quality: 'medium' });
+      const old = this.player;
+      this.scene.remove(old.model.root);
+      this.wheels.unregister(old.model);
+      this.player = this._makeCar(this._playerOptions(body.id));
+      this.playerAI = new AIDriver(this.player, this.track, { skill: 0.9, seed: 99 });
+      this.headlights = this._makeHeadlights(this.player);
+      this._applyHeadlights();
+      this.ghost.setBody(body.id);
+      if (this.state === 'menu') this._gridUp('race');
+      try {
+        await this.renderer.compileAsync(this.scene, this.camera);
+      } catch {
+        /* optional warm-up */
+      }
+    } finally {
+      this._bodySwap = false;
+      this.menu.setCarBusy?.(body.id, false);
+      this.menu.sync(this.settings, this.records);
+    }
+  }
+
   _makeCar(opts) {
     const car = new Car({ track: this.track, ...opts });
     car.model.attachContactShadow(this.shadowTex);
@@ -164,10 +205,10 @@ export class Game {
 
   _makeHeadlights(car) {
     const lights = [];
-    for (const x of [0.62, -0.62]) {
+    for (const [x, y, z] of car.body.headlamps) {
       const s = new THREE.SpotLight(0xfff4e0, 0, 95, 0.42, 0.55, 1.5);
-      s.position.set(x, 0.68, 2.05);
-      s.target.position.set(x * 1.6, 0.0, 22);
+      s.position.set(x, y, z);
+      s.target.position.set(x * 1.6, 0.0, z + 20);
       car.model.root.add(s, s.target);
       s.visible = false;
       lights.push(s);
@@ -309,6 +350,7 @@ export class Game {
       this.player.color = this._paint();
     }
     if (partial.rim) this._rebuildPlayerRims();
+    if (partial.car && partial.car !== prev.car) this.setPlayerBody(partial.car);
     if (partial.units) this.hud.units = s.units;
     if (partial.volume != null) this.audio.setVolume(s.volume);
     if ((partial.opponents != null || partial.difficulty) && this.state === 'menu') this._gridUp('race');
@@ -345,15 +387,21 @@ export class Game {
     const p = this.world.preset;
     this.post.setBloom(p.bloom);
     const night = !!p.night;
-    for (const l of this.headlights) {
-      l.visible = night;
-      l.intensity = night ? 190 : 0;
-    }
+    this._applyHeadlights();
     for (const s of this.rivalSpots) {
       s.visible = night;
       s.intensity = night ? 55 : 0;
     }
     for (const car of [this.player, ...this.rivalCars]) car.headlights = night;
+  }
+
+  _applyHeadlights() {
+    const night = !!this.world.preset.night;
+    for (const l of this.headlights) {
+      l.visible = night;
+      l.intensity = night ? 190 : 0;
+    }
+    this.player.headlights = night;
   }
 
   _save() {

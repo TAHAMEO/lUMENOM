@@ -33,6 +33,23 @@ A WebGL 2 capable browser is required (current Chrome, Edge, Firefox or Safari).
 Phones and tablets get on-screen controls. Drifting and tucking in behind a rival
 (slipstream) refill nitro.
 
+## Cars
+
+Pick your car in the garage on the main menu:
+
+- **Lumenom GT**, the game's own supercar.
+- **Mercedes-Benz SLK 200** (R172, 2011–2016) in AMG Line trim with the roof stowed.
+  Its physics use the real car's 2,430 mm wheelbase, 1,559/1,565 mm tracks and 19-inch
+  wheels; engine and grip are shared with the GT so races stay close. The in-car camera
+  (`C`) puts you in the driver's seat, where the dials follow the engine and road speed.
+
+## Showroom
+
+`/showroom.html` (the **Showroom** button on the menu) is a studio viewer for the SLK 200:
+orbit and zoom, eight period Mercedes paints, left- or right-hand drive, headlamps, a
+turntable, camera presets including the angle of the reference press photo, and
+**Download .glb** to take the model into Blender or any glTF viewer.
+
 ## Modes
 
 - **Race**: 1–10 laps against up to 7 AI rivals, with an F1-style five-light start,
@@ -66,6 +83,18 @@ skirts are patches evaluated on the same surface so they sit flush. Clear-coated
 reflects an environment map rendered from the sky. Wheels for every car are drawn
 through shared instanced meshes.
 
+**SLK 200.** The body is a signed distance field built from blueprint-style profiles:
+plan width with tumblehome and a shoulder crease, a hood that dips between the fender
+crowns and carries twin power domes, a crowned rear deck, and nose and tail profiles swept
+back in plan view, all blended with fillets. It is meshed by casting rays from the plan
+view's medial axis, spaced by curvature so creases and fillets get more vertices, then the
+openings (arches, cockpit, grille, intakes, lamps, vent, plate recess, diffuser) are cut as
+trims whose boundaries carry lips, walls, lenses and chrome. The tail lamps use a
+cylindrical trim so they wrap around the corners. Proportions were fitted to a reference
+press photo: its camera was solved from the wheels and the horizon, then the body was
+adjusted until photo silhouette rays grazed it (within about 2 cm) and feature outlines
+were projected onto it.
+
 **Physics.** A bicycle model with a Pacejka-style tyre curve, friction circle on the
 driven axle, weight transfer, downforce, ABS and brake distribution, a torque-curve
 engine with a six-speed automatic, speed-sensitive steering with countersteer assist,
@@ -96,19 +125,24 @@ src/
   main.js              boot, loading screen, debug URL hooks
   Game.js              renderer, main loop, game flow
   world/               track, terrain, vegetation, props, sky, lighting, textures
-  vehicle/             car physics, procedural car model, instanced wheels
+  vehicle/             car physics, procedural car model, instanced wheels, car bodies
+    slk/               SLK 200: shape field, mesher, exterior, cabin, wheels, textures
+  showroom/            SLK 200 studio viewer and glTF export
   ai/                  AI driver
   race/                race manager (laps, sectors, gaps), ghost
   fx/                  particles, skid marks, post-processing
   audio/               synthesized sound
   camera/              chase, hood, bumper, orbit and TV cameras
   ui/                  HUD, menus, touch controls
-tests/                 Vitest suites for track, physics, race logic and AI
+tests/                 Vitest suites for track, physics, race logic, AI and the SLK model
 ```
 
 Debug hooks for testing: `?demo=race` starts a race on autopilot, and `ff=<seconds>`
-fast-forwards it. `tod=night`, `q=ultra` and `cam=hood` set lighting, graphics tier and camera.
+fast-forwards it. `tod=night`, `q=ultra`, `cam=hood` and `car=slk` set lighting, graphics
+tier, camera and car. The showroom takes `?shots=f34,side:900x450` to render views offscreen
+and `?mask=1` for a paint silhouette (used to compare against the reference photo).
 
 ## License
 
-MIT
+MIT. Mercedes-Benz, SLK and the three-pointed star are trademarks of Mercedes-Benz Group AG;
+the SLK 200 here is an unofficial, fan-made model and is not endorsed by them.

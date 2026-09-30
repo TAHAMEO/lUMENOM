@@ -47,8 +47,14 @@ export class WheelInstances {
   }
 
   register(model) {
+    if (model.usesSharedWheels === false) return; // draws its own wheels
     if (this.models.length >= this.max) throw new Error('WheelInstances capacity exceeded');
     this.models.push(model);
+  }
+
+  unregister(model) {
+    const i = this.models.indexOf(model);
+    if (i >= 0) this.models.splice(i, 1);
   }
 
   update() {
@@ -84,6 +90,15 @@ export class WheelInstances {
         else this.caliper.setMatrixAt(quad, _steer);
         rim.setColorAt(pair, model.rimColor);
         this.caliper.setColorAt(quad, model.caliperColor);
+      }
+    }
+    // clear slots left over by unregistered models
+    for (let c = this.models.length; c < this.max; c++) {
+      for (let k = 0; k < 4; k++) {
+        const pair = c * 2 + (k & 1);
+        for (const m of [this.tireF, this.tireR, this.rimF, this.rimR, this.discF, this.discR]) m.setMatrixAt(pair, ZERO);
+        this.barrel.setMatrixAt(c * 4 + k, ZERO);
+        this.caliper.setMatrixAt(c * 4 + k, ZERO);
       }
     }
     for (const m of this.all) {

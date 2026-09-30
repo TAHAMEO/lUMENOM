@@ -115,8 +115,11 @@ export class CameraRig {
       case 'hood':
       case 'bumper': {
         const hood = this.mode === 'hood';
-        car.localToWorld(0, hood ? 1.12 : 0.5, hood ? 0.25 : 2.3, this.pos);
-        car.localToWorld(0, hood ? 1.0 : 0.45, 30, this.look);
+        const cams = car.body?.cams;
+        const at = cams ? (hood ? cams.hood : cams.bumper) : hood ? [0, 1.12, 0.25] : [0, 0.5, 2.3];
+        const to = cams ? (hood ? cams.hoodLook : cams.bumperLook) : hood ? [0, 1.0, 30] : [0, 0.45, 30];
+        car.localToWorld(at[0], at[1], at[2], this.pos);
+        car.localToWorld(to[0], to[1], to[2], this.look);
         fovTarget = (hood ? 68 : 72) + 12 * smoothstep(10, 85, speed) + (ph.nitroActive ? 8 : 0);
         break;
       }

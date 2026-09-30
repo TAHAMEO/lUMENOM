@@ -4,22 +4,15 @@
 
 import * as THREE from 'three';
 import { CarPhysics } from './CarPhysics.js';
-import { CarModel, CG_OFFSET } from './CarModel.js';
+import { CarModel } from './CarModel.js';
+import { SLKModel } from './slk/SLKModel.js';
+import { bodyOf } from './bodies.js';
 import { clamp, damp, springStep } from '../core/math.js';
-
-const FRONT_EXTENT = 2.21;
-const REAR_EXTENT = 2.43;
-const HALF_WIDTH = 0.99;
-const CIRCLES = [
-  [1.3, 1.0],
-  [0.0, 1.02],
-  [-1.45, 1.02],
-];
 
 const _v3 = new THREE.Vector3();
 
 export class Car {
-  constructor({ track, id, name, code, color, rim, caliper, wing, plate, isPlayer = false, spec = {}, skill = 1, headless = false }) {
+  constructor({ track, id, name, code, color, rim, caliper, wing, plate, body = 'lumenom', isPlayer = false, spec = {}, skill = 1, headless = false }) {
     this.track = track;
     this.id = id;
     this.name = name;
@@ -27,8 +20,9 @@ export class Car {
     this.color = color;
     this.isPlayer = isPlayer;
     this.skill = skill;
-    this.physics = new CarPhysics(spec);
-    this.model = headless ? null : new CarModel({ color, rim, caliper, wing, plate, ownWheels: false });
+    this.body = bodyOf(body);
+    this.physics = new CarPhysics({ ...this.body.spec, ...spec });
+    this.model = headless ? null : Car.createModel(this.body, { color, rim, caliper, wing, plate });
     this.input = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false };
     this.hint = 0;
     this.proj = {};
@@ -52,6 +46,16 @@ export class Car {
     this.frameEvents = [];
     this.scrape = 0;
     this.resetRace();
+  }
+
+  static createModel(body, { color, rim, caliper, wing, plate }) {
+    if (body.id === 'slk') {
+      const m = new SLKModel({ color, quality: 'medium', plate });
+      const rims = { silver: 0xc7cacf, black: 0x1b1c1f, bronze: 0x9c7a44, gunmetal: 0x4a4e55 };
+      m.rimMat.color.setHex(rims[rim] ?? rims.silver);
+      return m;
+    }
+    return new CarModel({ color, rim, caliper, wing, plate, ownWheels: false });
   }
 
   resetRace() {
@@ -113,15 +117,16 @@ export class Car {
     let deepR = 0;
     let rL = null;
     let rR = null;
+    const { front, rear, halfWidth } = this.body.extents;
     const pts = [
-      [HALF_WIDTH, FRONT_EXTENT - 0.25],
-      [-HALF_WIDTH, FRONT_EXTENT - 0.25],
-      [HALF_WIDTH, -REAR_EXTENT + 0.3],
-      [-HALF_WIDTH, -REAR_EXTENT + 0.3],
-      [0, FRONT_EXTENT],
-      [0, -REAR_EXTENT],
-      [HALF_WIDTH, 0],
-      [-HALF_WIDTH, 0],
+      [halfWidth, front - 0.25],
+      [-halfWidth, front - 0.25],
+      [halfWidth, -rear + 0.3],
+      [-halfWidth, -rear + 0.3],
+      [0, front],
+      [0, -rear],
+      [halfWidth, 0],
+      [-halfWidth, 0],
     ];
     for (const [lat, lon] of pts) {
       const rx = sn * lon + cs * lat;
@@ -197,10 +202,10 @@ export class Car {
     const sb = Math.sin(pb.yaw);
     const cb = Math.cos(pb.yaw);
     let best = null;
-    for (const [la, ra] of CIRCLES) {
+    for (const [la, ra] of a.body.extents.circles) {
       const ax = pa.x + sa * la;
       const az = pa.z + ca * la;
-      for (const [lb, rb] of CIRCLES) {
+      for (const [lb, rb] of b.body.extents.circles) {
         const bx = pb.x + sb * lb;
         const bz = pb.z + cb * lb;
         const dx = bx - ax;
@@ -296,6 +301,7 @@ export class Car {
       heave: this.susp.heave.value + (ph.grounded ? 0 : 0.03),
     });
     this.model.setLights({ brake: ph.brake > 0.1 && !ph.reverse, reverse: ph.reverse, headlights: this.headlights });
+    this.model.setGauges?.(ph.speed * 3.6, ph.rpm);
   }
 
   /** World position of a local point (x left, y up, z forward from the CG). */

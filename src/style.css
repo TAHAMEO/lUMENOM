@@ -1345,3 +1345,25 @@ body.touch-mode .pause-btn {
     bottom: calc(160px + var(--safe-b));
   }
 }
+
+/* car chips: first switch to the SLK builds its geometry */
+.chip.is-busy {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.chip.is-busy::after {
+  content: ' · building';
+  color: var(--muted);
+}
+
+a.ghost-btn {
+  color: var(--paper);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.garage #cars {
+  margin-bottom: 0.9rem;
+}

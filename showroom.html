@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>SLK 200 Showroom</title>
+    <meta name="description" content="A procedural 3D model of the Mercedes-Benz SLK 200 (R172) roadster, built entirely in code." />
+    <meta name="theme-color" content="#0b0f17" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Chivo+Mono:wght@400;600&family=Saira+Semi+Condensed:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="./src/showroom/showroom.css" />
+  </head>
+  <body>
+    <div id="studio">
+      <canvas id="scene" aria-label="3D model of the SLK 200"></canvas>
+
+      <header class="plate">
+        <div class="plate__eyebrow">Mercedes-Benz · R172 · 2011–2016</div>
+        <h1 class="plate__name">SLK 200</h1>
+        <div class="plate__sub">Roadster, Vario-roof stowed · AMG Line</div>
+      </header>
+
+      <a class="backlink" id="backlink" href="./index.html">Lumenom Racer</a>
+
+      <section class="panel" id="panel" aria-label="Configure the model">
+        <div class="group">
+          <div class="group__head"><span class="label">Paint</span><span class="value" id="paint-name">Mars Red</span></div>
+          <div class="swatches" id="swatches" role="radiogroup" aria-label="Paint"></div>
+        </div>
+        <div class="group">
+          <div class="group__head"><span class="label">View</span></div>
+          <div class="chips" id="views" role="radiogroup" aria-label="Camera view"></div>
+        </div>
+        <div class="group group--row">
+          <div>
+            <div class="group__head"><span class="label">Steering</span></div>
+            <div class="segmented" id="drive" role="radiogroup" aria-label="Steering side">
+              <button type="button" data-v="left" id="drive-left">Left-hand</button>
+              <button type="button" data-v="right" id="drive-right">Right-hand</button>
+            </div>
+          </div>
+          <div class="toggles">
+            <label class="toggle"><input type="checkbox" id="opt-lamps" /> <span>Headlamps</span></label>
+            <label class="toggle"><input type="checkbox" id="opt-spin" checked /> <span>Turntable</span></label>
+          </div>
+        </div>
+        <button type="button" class="download" id="download">Download .glb</button>
+      </section>
+
+      <dl class="specs" aria-label="Specifications">
+        <div>
+          <dt>Length</dt>
+          <dd>4,134 mm</dd>
+        </div>
+        <div>
+          <dt>Width</dt>
+          <dd>1,817 mm</dd>
+        </div>
+        <div>
+          <dt>Wheelbase</dt>
+          <dd>2,430 mm</dd>
+        </div>
+        <div>
+          <dt>Track F/R</dt>
+          <dd>1,559 / 1,565</dd>
+        </div>
+        <div>
+          <dt>Engine</dt>
+          <dd>1.8 L turbo I4</dd>
+        </div>
+        <div>
+          <dt>Output</dt>
+          <dd>135 kW · 270 N·m</dd>
+        </div>
+      </dl>
+
+      <div class="hint" id="hint">Drag to orbit · scroll or pinch to zoom</div>
+
+      <div class="loader" id="loader" role="status">
+        <div class="loader__name">SLK 200</div>
+        <div class="loader__bar"><span id="loader-fill"></span></div>
+        <div class="loader__step" id="loader-step">Meshing the body shell</div>
+      </div>
+    </div>
+    <script type="module" src="./src/showroom/main.js"></script>
+  </body>
+</html>

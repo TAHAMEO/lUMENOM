@@ -23,6 +23,7 @@ async function start(hotData = {}) {
   const game = new Game($('scene'));
   window.__lumenom = game;
   if (hotData.settings) Object.assign(game.settings, hotData.settings);
+  if (params.get('car')) game.settings.car = params.get('car');
   try {
     await game.init(progress);
   } catch (err) {
@@ -31,7 +32,7 @@ async function start(hotData = {}) {
   }
   window.claude?.hot?.snapshot?.(() => ({ settings: game.settings }));
 
-  // Developer/test hooks: ?tod=night&q=ultra&demo=race&ff=8&cam=chase&manual=1
+  // Developer/test hooks: ?car=slk&tod=night&q=ultra&demo=race&ff=8&cam=chase&manual=1
   if (params.get('tod')) game.applySettings({ timeOfDay: params.get('tod') });
   if (params.get('q')) game.applySettings({ quality: params.get('q') });
   if (params.get('laps')) game.applySettings({ laps: Number(params.get('laps')) });

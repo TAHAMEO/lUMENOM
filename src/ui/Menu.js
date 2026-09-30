@@ -2,6 +2,7 @@
 // the game decides what each action does).
 
 import { PAINTS } from '../vehicle/CarModel.js';
+import { BODY_LIST } from '../vehicle/bodies.js';
 import { formatTime, ordinal } from '../core/math.js';
 
 const $ = (id) => document.getElementById(id);
@@ -56,6 +57,15 @@ export class Menu {
     }
 
     // garage
+    const cars = $('cars');
+    cars.innerHTML = BODY_LIST.map((b) => `<button class="chip" role="radio" data-id="${b.id}" id="car-${b.id}">${b.name}</button>`).join('');
+    cars.addEventListener('click', (e) => {
+      const b = e.target.closest('.chip');
+      if (!b || b.disabled) return;
+      g.audio.init();
+      g.audio.ui();
+      g.applySettings({ car: b.dataset.id });
+    });
     const sw = $('swatches');
     sw.innerHTML = PAINTS.map(
       (p) => `<button class="swatch" role="radio" data-id="${p.id}" style="--c:${p.color}" aria-label="${p.name}" title="${p.name}"></button>`,
@@ -110,6 +120,7 @@ export class Menu {
     const mark = (container, attr, value) => {
       for (const b of container.querySelectorAll('button')) b.setAttribute('aria-checked', String(b.dataset[attr] === String(value)));
     };
+    mark($('cars'), 'id', settings.car);
     mark($('swatches'), 'id', settings.paint);
     mark($('rims'), 'id', settings.rim);
     mark($('set-tod'), 'v', settings.timeOfDay);
@@ -125,6 +136,14 @@ export class Menu {
     const best = records?.bestLap;
     $('meta-tt').textContent = best ? `Beat your ghost · best ${formatTime(best * 1000)}` : 'Set a lap, then chase your ghost';
     $('stat-record').textContent = best ? formatTime(best * 1000) : '—';
+  }
+
+  /** Show that a car body is being built (the SLK takes a moment the first time). */
+  setCarBusy(id, busy) {
+    for (const b of $('cars').querySelectorAll('button')) {
+      b.disabled = busy;
+      if (b.dataset.id === id) b.classList.toggle('is-busy', busy);
+    }
   }
 
   setTrackStats(track) {

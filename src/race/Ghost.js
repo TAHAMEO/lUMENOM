@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { CarModel } from '../vehicle/CarModel.js';
+import { SLKModel } from '../vehicle/slk/SLKModel.js';
 
 const RATE = 20; // samples per second
 const STRIDE = 7; // t, x, y, z, yaw, pitch, roll
@@ -50,18 +51,34 @@ export class Ghost {
     this.best = null; // Float32Array
     this.bestDistances = null;
     this.material = createGhostMaterial();
-    this.model = new CarModel({ color: '#ffffff', plate: 'GHOST' });
-    this.model.root.traverse((o) => {
+    this.bodyId = null;
+    this.model = null;
+    this.setBody('lumenom');
+    this._acc = 0;
+    this.distRecording = [];
+  }
+
+  /** Show the ghost as the given body ('lumenom' or 'slk'). */
+  setBody(id) {
+    if (this.bodyId === id) return;
+    const model = id === 'slk' ? new SLKModel({ color: '#ffffff', quality: 'medium', plate: 'GHOST' }) : new CarModel({ color: '#ffffff', plate: 'GHOST' });
+    model.root.traverse((o) => {
       if (o.isMesh) {
         o.material = this.material;
         o.castShadow = false;
         o.receiveShadow = false;
       }
     });
-    this.model.root.visible = false;
-    scene.add(this.model.root);
-    this._acc = 0;
-    this.distRecording = [];
+    model.root.visible = false;
+    if (this.model) {
+      model.root.position.copy(this.model.root.position);
+      model.root.rotation.copy(this.model.root.rotation);
+      model.root.visible = this.model.root.visible;
+      this.scene.remove(this.model.root);
+    }
+    this.scene.add(model.root);
+    this.model = model;
+    this.bodyId = id;
   }
 
   load(encoded) {

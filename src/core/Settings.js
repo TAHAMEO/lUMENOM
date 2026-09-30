@@ -87,6 +87,7 @@ export const DEFAULTS = {
   difficulty: 'medium',
   paint: 'lumen',
   rim: 'silver',
+  car: 'lumenom',
   units: 'kmh',
   volume: 0.8,
   camera: 'chase',
