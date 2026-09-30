@@ -346,11 +346,11 @@ export class Game {
     const night = !!p.night;
     for (const l of this.headlights) {
       l.visible = night;
-      l.intensity = night ? 260 : 0;
+      l.intensity = night ? 190 : 0;
     }
     for (const s of this.rivalSpots) {
       s.visible = night;
-      s.intensity = night ? 200 : 0;
+      s.intensity = night ? 55 : 0;
     }
     for (const car of [this.player, ...this.rivalCars]) car.headlights = night;
   }
@@ -626,7 +626,7 @@ export class Game {
         s.intensity = 0;
         return;
       }
-      s.intensity = 200;
+      s.intensity = 55;
       car.localToWorld(0, 0.7, 2.2, s.position);
       car.localToWorld(0, 0, 24, s.target.position);
       s.target.updateMatrixWorld();
@@ -662,7 +662,7 @@ export class Game {
         this.flareVis = (this.flareVis ?? 0) + (vis - (this.flareVis ?? 0)) * Math.min(1, dt * 8);
         fx.sunPos = (this._sunPos || (this._sunPos = new THREE.Vector2())).set(ndc.x * 0.5 + 0.5, ndc.y * 0.5 + 0.5);
       } else this.flareVis = (this.flareVis ?? 0) * Math.max(0, 1 - dt * 8);
-      fx.sunVisible = (this.flareVis ?? 0) * (this.world.presetKey === 'sunset' ? 1 : 0.55);
+      fx.sunVisible = (this.flareVis ?? 0) * (this.world.presetKey === 'sunset' ? 1 : 0.3);
       this._sunTint = this._sunTint || new THREE.Color();
       fx.sunTint = this.world.presetKey === 'sunset' ? this._sunTint.setRGB(1, 0.62, 0.32) : this._sunTint.setRGB(1, 0.95, 0.85);
     }

@@ -89,7 +89,7 @@ const LensShader = {
       if ( sunVisible > 0.001 ) {
         vec2 aspect = vec2( resolution.x / resolution.y, 1.0 );
         vec2 d = ( uv - sunPos ) * aspect;
-        float glow = 0.02 / ( dot( d, d ) + 0.02 ) * 0.12;
+        float glow = 0.004 / ( dot( d, d ) + 0.004 ) * 0.14;
         vec3 flare = sunTint * glow;
         vec2 axis = vec2( 0.5 ) - sunPos;
         for ( int k = 0; k < 4; k++ ) {

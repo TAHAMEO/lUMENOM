@@ -3,7 +3,7 @@
 // each bucket for the main camera and the shadow camera independently.
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createNoise2D, fbm } from '../core/noise.js';
 import { clamp, mulberry32, smoothstep } from '../core/math.js';
 import { VERGE_BEYOND_BARRIER } from './Track.js';
@@ -103,7 +103,11 @@ export function createBroadleafGeometry(seed = 5) {
     [0.1, 6.3, -0.1, 1.5],
   ];
   for (const [bx, by, bz, r] of blobs) {
-    const ico = new THREE.IcosahedronGeometry(r, 1);
+    // welded so the crown gets soft, rounded shading instead of facets
+    let ico = new THREE.IcosahedronGeometry(r, 1);
+    ico.deleteAttribute('uv');
+    ico.deleteAttribute('normal');
+    ico = mergeVertices(ico);
     const pos = ico.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -116,9 +120,11 @@ export function createBroadleafGeometry(seed = 5) {
     jitter(ico, rand, 0.12);
     colorize(ico, (x, y, z, c) => {
       const t = clamp((y - (by - r)) / (2 * r), 0, 1);
-      c.setRGB(0.12 + 0.12 * t, 0.24 + 0.16 * t, 0.08 + 0.04 * t, THREE.SRGBColorSpace);
+      const v = 0.85 + 0.3 * rand();
+      c.setRGB((0.11 + 0.12 * t) * v, (0.23 + 0.16 * t) * v, (0.08 + 0.04 * t) * v, THREE.SRGBColorSpace);
     });
-    parts.push(stripUv(ico));
+    const flat = ico.toNonIndexed();
+    parts.push(flat);
   }
   const geo = mergeGeometries(parts);
   geo.computeBoundingSphere();

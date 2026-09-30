@@ -594,8 +594,8 @@ function buildShared() {
   dPlate.rotateX(-0.22);
   dPlate.translate(0, 0.25, Z_MIN + 0.26);
   diff.push(dPlate);
-  for (let k = -2; k <= 2; k++) {
-    const fin = new THREE.BoxGeometry(0.014, 0.09, 0.42);
+  for (let k = -1; k <= 1; k++) {
+    const fin = new THREE.BoxGeometry(0.014, 0.07, 0.4);
     fin.rotateX(-0.22);
     fin.translate(k * 0.24, 0.24, Z_MIN + 0.27);
     diff.push(fin);
@@ -746,7 +746,7 @@ function buildShared() {
   S.mats = {
     glass: new THREE.MeshPhysicalMaterial({ color: 0x06080b, metalness: 0.2, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.4 }),
     trim: new THREE.MeshStandardMaterial({ color: 0x08090a, metalness: 0.3, roughness: 0.22 }),
-    plastic: new THREE.MeshStandardMaterial({ color: 0x0d0e10, metalness: 0.05, roughness: 0.62 }),
+    plastic: new THREE.MeshStandardMaterial({ color: 0x08090a, metalness: 0.0, roughness: 0.85, envMapIntensity: 0.4 }),
     carbon: new THREE.MeshPhysicalMaterial({ map: carbonTex, color: 0x9a9a9a, metalness: 0.2, roughness: 0.4, clearcoat: 1, clearcoatRoughness: 0.1, envMapIntensity: 0.7 }),
     grille: new THREE.MeshStandardMaterial({ map: (() => { const t = createGrilleTexture(); t.repeat.set(6, 3); return t; })(), roughness: 0.7, metalness: 0.2 }),
     liner: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.95, side: THREE.DoubleSide }),
@@ -911,7 +911,7 @@ export class CarModel {
   }
 
   setLights({ brake = false, reverse = false, headlights = false } = {}) {
-    this.tailMat.emissiveIntensity = brake ? 9 : headlights ? 3.2 : 2.2;
+    this.tailMat.emissiveIntensity = brake ? 6 : headlights ? 2.6 : 2.2;
     this.headMat.emissiveIntensity = headlights ? 6 : 0.25;
   }
 

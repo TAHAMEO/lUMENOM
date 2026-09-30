@@ -1256,9 +1256,10 @@ kbd {
   }
 
   body.touch-mode .hud__br {
-    bottom: auto;
-    top: calc(150px + var(--safe-t));
-    right: calc(4px + var(--safe-r));
+    right: auto;
+    left: 50%;
+    bottom: calc(4px + var(--safe-b));
+    transform: translateX(-50%);
   }
 
   body.touch-mode #hud-tach {
@@ -1282,5 +1283,65 @@ body.touch-mode .pause-btn {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.rotate-hint {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-width: 640px) {
+  body.touch-mode .hud:not([hidden]) ~ .rotate-hint {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    transform: translateX(-50%);
+    z-index: 7;
+    padding: 8px 14px;
+    background: var(--glass-strong);
+    border: 1px solid var(--line);
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    pointer-events: none;
+    animation: fade 0.4s 1s both;
+  }
+
+  body.touch-mode .hud__tr #hud-map {
+    width: 96px;
+    height: 96px;
+  }
+
+  body.touch-mode .pause-btn {
+    left: auto;
+    right: calc(16px + var(--safe-r));
+    top: calc(122px + var(--safe-t));
+    transform: none;
+  }
+
+  body.touch-mode .hud__bl {
+    top: calc(96px + var(--safe-t));
+  }
+
+  body.touch-mode .touch__left button {
+    width: 72px;
+    height: 72px;
+  }
+
+  body.touch-mode .touch__right {
+    grid-template-columns: 64px 80px;
+    grid-template-rows: 56px 80px;
+  }
+
+  body.touch-mode .touch__right .t-nitro {
+    width: 80px;
+    bottom: 150px;
+  }
+
+  body.touch-mode .hud__br {
+    bottom: calc(160px + var(--safe-b));
   }
 }

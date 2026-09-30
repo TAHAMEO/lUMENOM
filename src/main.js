@@ -34,10 +34,11 @@ async function start(hotData = {}) {
   // Developer/test hooks: ?tod=night&q=ultra&demo=race&ff=8&cam=chase&manual=1
   if (params.get('tod')) game.applySettings({ timeOfDay: params.get('tod') });
   if (params.get('q')) game.applySettings({ quality: params.get('q') });
+  if (params.get('laps')) game.applySettings({ laps: Number(params.get('laps')) });
   const demo = params.get('demo');
   if (demo) {
     game.startMode(demo);
-    game.race.startCountdown(true);
+    if (!params.get('countdown')) game.race.startCountdown(true);
     game.autopilot = params.get('drive') !== 'manual';
     game.playerAI.skill = 0.97;
     if (params.get('cam')) game.rig.setMode(params.get('cam'), true);
