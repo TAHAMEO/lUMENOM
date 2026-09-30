@@ -200,7 +200,7 @@ function gridGeometry(rows, cols, fn, flip = false) {
 
 function bodyStations() {
   const zs = [];
-  const step = 0.028;
+  const step = 0.04;
   for (let z = Z_MIN; z < Z_MAX - 1e-6; z += step) zs.push(z);
   zs.push(Z_MAX);
   // extra resolution at arch edges for crisp openings
@@ -212,8 +212,8 @@ function bodyStations() {
 
 function uSamples() {
   const us = [];
-  const low = 16;
-  const up = 26;
+  const low = 12;
+  const up = 22;
   for (let i = 0; i < low; i++) us.push((i / low) * 0.5);
   for (let i = 0; i <= up; i++) us.push(0.5 + (i / up) * 0.5);
   return us;
@@ -308,6 +308,30 @@ function bodyPatch(z0, z1, u0f, u1f, nz, nu, offset, sides = [1, -1]) {
   return mergeSimple(geos);
 }
 
+/** Split an indexed geometry with groups into one non-indexed geometry per group. */
+function splitGroups(geo) {
+  const flat = geo.toNonIndexed();
+  return geo.groups.map((grp) => {
+    const g = new THREE.BufferGeometry();
+    for (const [name, attr] of Object.entries(flat.attributes)) {
+      const size = attr.itemSize;
+      g.setAttribute(name, new THREE.BufferAttribute(attr.array.slice(grp.start * size, (grp.start + grp.count) * size), size));
+    }
+    return g;
+  });
+}
+
+function planarUv(geo, sx, sy, ox = 0, oy = 0) {
+  const pos = geo.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = pos.getX(i) * sx + ox;
+    uv[i * 2 + 1] = pos.getY(i) * sy + oy;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
 function mergeSimple(geos) {
   const withUv = geos.map((g) => (g.index ? g.toNonIndexed() : g));
   let count = 0;
@@ -387,9 +411,9 @@ function cabinClass(z, u) {
 
 function buildCabinGeometry() {
   const zs = [];
-  const nz = 90;
+  const nz = 72;
   for (let i = 0; i <= nz; i++) zs.push(lerp(CABIN_REAR, CABIN_FRONT, i / nz));
-  const nu = 34;
+  const nu = 26;
   const pos = [];
   const v = new THREE.Vector3();
   const params = [];
@@ -450,7 +474,7 @@ function buildTireGeometry(width) {
     [0.285, hw],
     [0.252, hw * 0.92],
   ].map(([r, y]) => new THREE.Vector2(r, y));
-  const g = new THREE.LatheGeometry(pts, 40);
+  const g = new THREE.LatheGeometry(pts, 32);
   g.rotateZ(-Math.PI / 2); // lathe axis Y → X
   return g;
 }
@@ -490,8 +514,8 @@ function buildRimFaceGeometry() {
     bevelEnabled: true,
     bevelThickness: 0.008,
     bevelSize: 0.006,
-    bevelSegments: 2,
-    curveSegments: 40,
+    bevelSegments: 1,
+    curveSegments: 28,
   });
   // dish: push the hub outward relative to the rim for a concave face
   const pos = g.attributes.position;
@@ -616,7 +640,7 @@ function buildShared() {
   const mir = [];
   const stalks = [];
   for (const side of [1, -1]) {
-    const m = new THREE.SphereGeometry(1, 16, 10);
+    const m = new THREE.SphereGeometry(1, 12, 8);
     // teardrop housing: blunt glass face backward, tapering forward
     const mp = m.attributes.position;
     for (let i = 0; i < mp.count; i++) {
@@ -685,6 +709,37 @@ function buildShared() {
   S.nuts = mergeSimple(nuts);
   S.caliper = buildCaliperGeometry();
 
+  // Merge body parts that share a material (one draw call each per car).
+  const [cabinGlass, cabinTrim, cabinRoof] = splitGroups(cabin);
+  S.paintGeo = mergeSimple([body.shell, body.rearCap, S.mirrors, cabinRoof]);
+  S.glassGeo = cabinGlass;
+  S.trimGeo = mergeSimple([cabinTrim, S.doorLines, S.louvres, S.mirrorStalks]);
+  S.grilleGeo = mergeSimple([planarUv(body.frontCap.toNonIndexed(), 0.7, 2.2, 0.5, -0.4), S.grille, S.sideIntake]);
+  S.plasticGeo = mergeSimple([S.diffuser, S.splitter, S.chassis]);
+  S.tailGeo = mergeSimple([S.tailWrap, S.tailBar]);
+
+  // Wheel parts with their offsets baked in (wheel-local frame, +X = outward on a left wheel).
+  const part = (geo, x) => {
+    const g = geo.clone();
+    g.translate(x, 0, 0);
+    return g;
+  };
+  const rimFor = (w) => mergeSimple([part(S.rimFace, w / 2 - 0.075), part(S.hub, w / 2 - 0.035)]);
+  const discFor = (w) => mergeSimple([part(S.disc, -0.01), part(S.nuts, w / 2 - 0.03)]);
+  const caliper = S.caliper.clone();
+  caliper.rotateX(0.6); // upper-rear quadrant of the disc
+  caliper.translate(0.02, 0, 0);
+  S.wheelParts = {
+    tireF: S.tireF,
+    tireR: S.tireR,
+    rimF: rimFor(0.255),
+    rimR: rimFor(0.3),
+    barrel: part(S.rimBarrel, -0.02),
+    discF: discFor(0.255),
+    discR: discFor(0.3),
+    caliper,
+  };
+
   // Materials shared by every car
   const carbonTex = createCarbonTexture();
   carbonTex.repeat.set(6, 6);
@@ -724,7 +779,7 @@ export const PAINTS = [
 ];
 
 export class CarModel {
-  constructor({ color = '#ff9a1f', rim = 'silver', caliper = '#d11a1a', wing = false, plate = 'LMN 01' } = {}) {
+  constructor({ color = '#ff9a1f', rim = 'silver', caliper = '#d11a1a', wing = false, plate = 'LMN 01', ownWheels = true } = {}) {
     const S = getCarShared();
     this.shared = S;
     this.root = new THREE.Group(); // placed at the CG on the ground by the Car
@@ -774,74 +829,60 @@ export class CarModel {
       parent.add(m);
       return m;
     };
-    this.bodyMesh = add(S.body.shell, this.paint);
-    add(S.body.rearCap, this.paint);
-    add(S.body.frontCap, M.grille, { cast: false });
-    this.cabinMesh = add(S.cabin, [M.glass, M.trim, this.paint]);
+    this.bodyMesh = add(S.paintGeo, this.paint);
+    add(S.glassGeo, M.glass);
+    add(S.trimGeo, M.trim, { cast: false });
+    add(S.grilleGeo, M.grille, { cast: false });
+    add(S.skirt, M.carbon, { cast: false });
+    add(S.plasticGeo, M.plastic);
     add(S.headLens, this.headMat, { cast: false });
     add(S.headDrl, this.drlMat, { cast: false, receive: false });
-    add(S.grille, M.grille, { cast: false });
-    add(S.sideIntake, M.grille, { cast: false });
-    add(S.skirt, M.carbon, { cast: false });
-    add(S.doorLines, M.trim, { cast: false });
-    add(S.tailWrap, this.tailMat, { cast: false });
-    add(S.louvres, M.trim, { cast: false });
-    add(S.tailBar, this.tailMat, { cast: false });
+    add(S.tailGeo, this.tailMat, { cast: false });
     add(S.plate, plateMat, { cast: false });
-    add(S.diffuser, M.carbon);
-    add(S.splitter, M.carbon);
     add(S.exhaust, M.exhaust);
     add(S.exhaustInner, M.exhaustInner, { cast: false });
-    add(S.chassis, M.plastic, { receive: false });
     add(S.liners, M.liner, { cast: false });
-    add(S.mirrors, this.paint);
-    add(S.mirrorStalks, M.trim);
     if (wing) add(S.wing, M.carbon);
 
-    // Wheels: pivot (steer) → spin; left side at +X
-    this.wheels = [];
-    const defs = [
-      { x: TRACK_FRONT, z: FRONT_AXLE, front: true },
-      { x: -TRACK_FRONT, z: FRONT_AXLE, front: true },
-      { x: TRACK_REAR, z: REAR_AXLE, front: false },
-      { x: -TRACK_REAR, z: REAR_AXLE, front: false },
-    ];
-    for (const d of defs) {
-      const pivot = new THREE.Group();
-      pivot.position.set(d.x, WHEEL_RADIUS, d.z - CG_OFFSET);
-      this.root.add(pivot);
-      const mirror = d.x < 0 ? -1 : 1;
-      const inner = new THREE.Group();
-      inner.scale.x = mirror; // mirror geometry for the right side
-      pivot.add(inner);
-      const spin = new THREE.Group();
-      inner.add(spin);
-      const tire = new THREE.Mesh(d.front ? S.tireF : S.tireR, M.tire);
-      const width = d.front ? 0.255 : 0.3;
-      tire.castShadow = true;
-      tire.receiveShadow = true;
-      spin.add(tire);
-      const face = new THREE.Mesh(S.rimFace, this.rimMat);
-      face.position.x = width / 2 - 0.075;
-      face.castShadow = true;
-      spin.add(face);
-      const barrel = new THREE.Mesh(S.rimBarrel, M.barrel);
-      barrel.position.x = -0.02;
-      spin.add(barrel);
-      const hub = new THREE.Mesh(S.hub, this.rimMat);
-      hub.position.x = width / 2 - 0.035;
-      spin.add(hub);
-      const nuts = new THREE.Mesh(S.nuts, M.disc);
-      nuts.position.x = width / 2 - 0.03;
-      spin.add(nuts);
-      const disc = new THREE.Mesh(S.disc, M.disc);
-      disc.position.x = -0.01;
-      spin.add(disc);
-      const caliper = new THREE.Mesh(S.caliper, this.caliperMat);
-      caliper.position.x = 0.02;
-      caliper.rotation.x = 0.6; // upper-rear quadrant of the disc
-      inner.add(caliper);
-      this.wheels.push({ pivot, spin, front: d.front, x: d.x, z: d.z - CG_OFFSET, mirror, rot: 0, baseY: WHEEL_RADIUS });
+    // Wheel state (left side at +X). Rendering is either shared instancing
+    // (WheelInstances, used in-game) or per-car meshes (ownWheels).
+    this.rimColor = this.rimMat.color;
+    this.caliperColor = this.caliperMat.color;
+    this.wheels = [
+      { x: TRACK_FRONT, z: FRONT_AXLE - CG_OFFSET, front: true, right: false },
+      { x: -TRACK_FRONT, z: FRONT_AXLE - CG_OFFSET, front: true, right: true },
+      { x: TRACK_REAR, z: REAR_AXLE - CG_OFFSET, front: false, right: false },
+      { x: -TRACK_REAR, z: REAR_AXLE - CG_OFFSET, front: false, right: true },
+    ].map((w) => ({ ...w, steer: 0, spin: 0, offset: 0, pivot: null, spinGroup: null }));
+    if (ownWheels) {
+      const P = S.wheelParts;
+      for (const w of this.wheels) {
+        const pivot = new THREE.Group();
+        pivot.position.set(w.x, WHEEL_RADIUS, w.z);
+        this.root.add(pivot);
+        const side = new THREE.Group();
+        side.rotation.y = w.right ? Math.PI : 0;
+        pivot.add(side);
+        const spinGroup = new THREE.Group();
+        side.add(spinGroup);
+        const meshes = [
+          [w.front ? P.tireF : P.tireR, M.tire, true],
+          [w.front ? P.rimF : P.rimR, this.rimMat, true],
+          [P.barrel, M.barrel, false],
+          [w.front ? P.discF : P.discR, M.disc, false],
+        ];
+        for (const [g, m, cast] of meshes) {
+          const mesh = new THREE.Mesh(g, m);
+          mesh.castShadow = cast;
+          mesh.receiveShadow = true;
+          spinGroup.add(mesh);
+        }
+        const cal = new THREE.Mesh(P.caliper, this.caliperMat);
+        if (w.right) cal.rotation.x = Math.PI - 1.2;
+        side.add(cal);
+        w.pivot = pivot;
+        w.spinGroup = spinGroup;
+      }
     }
 
     // Soft contact shadow
@@ -883,9 +924,14 @@ export class CarModel {
     this.chassis.position.y = state.heave;
     for (let k = 0; k < 4; k++) {
       const w = this.wheels[k];
-      w.pivot.rotation.y = w.front ? state.steer : 0;
-      w.spin.rotation.x = state.wheelSpin[k];
-      w.pivot.position.y = w.baseY + (state.wheelOffset ? state.wheelOffset[k] : 0);
+      w.steer = w.front ? state.steer : 0;
+      w.spin = state.wheelSpin[k];
+      w.offset = state.wheelOffset ? state.wheelOffset[k] : 0;
+      if (w.pivot) {
+        w.pivot.rotation.y = w.steer;
+        w.pivot.position.y = WHEEL_RADIUS + w.offset;
+        w.spinGroup.rotation.x = w.right ? -w.spin : w.spin;
+      }
     }
   }
 }

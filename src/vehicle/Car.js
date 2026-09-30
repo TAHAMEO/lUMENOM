@@ -28,7 +28,7 @@ export class Car {
     this.isPlayer = isPlayer;
     this.skill = skill;
     this.physics = new CarPhysics(spec);
-    this.model = headless ? null : new CarModel({ color, rim, caliper, wing, plate });
+    this.model = headless ? null : new CarModel({ color, rim, caliper, wing, plate, ownWheels: false });
     this.input = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false };
     this.hint = 0;
     this.proj = {};
@@ -231,16 +231,19 @@ export class Car {
     const vbz = pb.vz - pb.yawRate * rbx;
     const vn = (vbx - vax) * nx + (vbz - vaz) * nz;
     if (vn >= 0) return;
-    const e = 0.3;
+    const e = 0.2;
     const ran = raz * nx - rax * nz;
     const rbn = rbz * nx - rbx * nz;
     const j = (-(1 + e) * vn) / (1 / ma + 1 / mb + (ran * ran) / Ia + (rbn * rbn) / Ib);
+    // Only part of the yaw impulse is applied: side-by-side rubbing should
+    // nudge cars apart rather than spin them (arcade-friendly contact).
+    const spin = 0.45;
     pa.vx -= (j * nx) / ma;
     pa.vz -= (j * nz) / ma;
-    pa.yawRate -= (ran * j) / Ia;
+    pa.yawRate -= ((ran * j) / Ia) * spin;
     pb.vx += (j * nx) / mb;
     pb.vz += (j * nz) / mb;
-    pb.yawRate += (rbn * j) / Ib;
+    pb.yawRate += ((rbn * j) / Ib) * spin;
     const strength = Math.min(1, -vn / 14);
     if (-vn > 1) {
       const hit = { strength, x: cx, y: (pa.y + pb.y) / 2 + 0.5, z: cz, nx, nz, kind: 'car' };

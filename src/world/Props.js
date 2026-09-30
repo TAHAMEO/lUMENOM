@@ -610,6 +610,18 @@ export function buildProps(track, terrain, mats) {
     return m;
   });
   const backMat = new THREE.MeshStandardMaterial({ color: 0x30343a, roughness: 0.7 });
+  // back panel + two legs as a single mesh per board
+  const boardFrameGeo = (() => {
+    const back = boardGeo.clone();
+    back.rotateY(Math.PI);
+    back.translate(0, 4.4, -0.06);
+    const legs = [-4.5, 4.5].map((lx) => {
+      const g = legGeo.clone();
+      g.translate(lx, 0, -0.1);
+      return g;
+    });
+    return mergeGeometries([back, ...legs].map((g) => (g.index ? g.toNonIndexed() : g)));
+  })();
   let bi = 0;
   let lastBoard = -1000;
   let maxK = 0;
@@ -631,15 +643,7 @@ export function buildProps(track, terrain, mats) {
     const face = new THREE.Mesh(boardGeo, sponsorMats[bi % sponsorMats.length]);
     face.position.y = 4.4;
     board.add(face);
-    const back = new THREE.Mesh(boardGeo, backMat);
-    back.position.set(0, 4.4, -0.06);
-    back.rotation.y = Math.PI;
-    board.add(back);
-    for (const lx of [-4.5, 4.5]) {
-      const leg = new THREE.Mesh(legGeo, backMat);
-      leg.position.set(lx, 0, -0.1);
-      board.add(leg);
-    }
+    board.add(new THREE.Mesh(boardFrameGeo, backMat));
     board.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = true;
@@ -743,6 +747,8 @@ export function buildProps(track, terrain, mats) {
   chevronMat.emissiveMap = chevronMat.map;
   nightMaterials.push({ mat: chevronMat, day: 0, night: 0.35 });
   const chevGeo = new THREE.PlaneGeometry(1.6, 1.6);
+  const chevParts = [];
+  const chevObj = new THREE.Object3D();
   for (const sd of [1, -1]) {
     const walls = sd > 0 ? track.wallL : track.wallR;
     for (let i = 0; i < n; i += 6) {
@@ -750,14 +756,21 @@ export function buildProps(track, terrain, mats) {
       const f = frame(i);
       const lat = barrierOf(i, sd) + 1.7;
       const p = track.pointAt(i, sd * lat, tmp);
-      const c = new THREE.Mesh(chevGeo, chevronMat);
-      c.position.set(p.x, p.y + 1.6, p.z);
+      chevObj.position.set(p.x, p.y + 1.6, p.z);
       // face the track, arrow pointing in the direction of travel
-      c.rotation.y = Math.atan2(-f.lx * sd, -f.lz * sd);
-      if (sd < 0) c.scale.x = -1;
-      group.add(c);
+      chevObj.rotation.set(0, Math.atan2(-f.lx * sd, -f.lz * sd), 0);
+      chevObj.updateMatrix();
+      const g = chevGeo.clone();
+      if (sd < 0) {
+        // mirror the arrow by flipping U instead of using a negative scale
+        const uv = g.attributes.uv;
+        for (let k = 0; k < uv.count; k++) uv.setX(k, 1 - uv.getX(k));
+      }
+      g.applyMatrix4(chevObj.matrix);
+      chevParts.push(g);
     }
   }
+  if (chevParts.length) group.add(new THREE.Mesh(mergeGeometries(chevParts), chevronMat));
 
   return {
     group,

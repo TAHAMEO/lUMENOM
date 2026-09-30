@@ -21,13 +21,15 @@ export class AIDriver {
     this.skill = skill;
     this.rand = mulberry32(seed);
     this.personalOffset = (this.rand() - 0.5) * 1.2;
-    this.avoid = 0;
-    this.avoidTarget = 0;
+    this.aimLat = null;
     this.stuckTimer = 0;
     this.prevAngle = 0;
     this.nitroCooldown = 2 + this.rand() * 4;
     this.mistakeTimer = 5 + this.rand() * 10;
     this.mistake = 0;
+    this.raceTime = 0;
+    // reaction to lights-out: better drivers react faster
+    this.launchDelay = 0.12 + this.rand() * 0.25 + (1 - skill) * 1.5;
   }
 
   update(dt, cars, player, racing) {
@@ -35,6 +37,14 @@ export class AIDriver {
     const ph = car.physics;
     const t = this.track;
     const input = car.input;
+    if (racing) this.raceTime += dt;
+    else this.raceTime = 0;
+    if (racing && this.raceTime < this.launchDelay) {
+      input.throttle = 0;
+      input.brake = 1;
+      input.steer = 0;
+      return;
+    }
     if (!racing) {
       input.throttle = 0;
       input.brake = 1;
@@ -48,21 +58,35 @@ export class AIDriver {
     const i = car.proj.index;
     const profile = t.speedProfile;
 
-    // --- traffic: cars alongside push us sideways; a slower car ahead is
-    // passed on the side with room, otherwise we follow it.
+    // --- traffic. Cars overlapping us are hard lane limits (we leave a car's
+    // width of room); a slower car ahead is passed on a side with space,
+    // otherwise we follow it. The car on the outside of a corner yields.
     const lapLen = t.length;
     const hw = t.halfWidth;
     const myLat = car.proj.lateral;
     let ahead = null;
-    let repel = 0;
+    let minLat = -Infinity;
+    let maxLat = Infinity;
+    let company = false;
+    let outsideOf = false;
+    const leadK = t.curvature[(i + Math.round((10 + speed * 0.6) / t.ds)) % n];
     for (const o of cars) {
       if (o === car) continue;
       let gap = o.proj.distance - car.proj.distance;
       if (gap < -lapLen / 2) gap += lapLen;
       if (gap > lapLen / 2) gap -= lapLen;
-      const dLat = o.proj.lateral - myLat;
-      if (Math.abs(gap) < 5.8 && Math.abs(dLat) < 3.1) repel -= Math.sign(dLat || 1) * (3.1 - Math.abs(dLat)) * 1.3;
-      if (gap > 0 && gap < 45 && Math.abs(dLat) < 2.5 && (!ahead || gap < ahead.gap)) ahead = { car: o, gap, dLat };
+      const oLat = o.proj.lateral;
+      const dLat = oLat - myLat;
+      if (Math.abs(gap) < 30) company = true;
+      // lane limits from cars overlapping us or just ahead on either side
+      if (gap > -6.5 && gap < 11 && Math.abs(dLat) > 0.6) {
+        if (dLat >= 0) maxLat = Math.min(maxLat, oLat - 2.65);
+        else minLat = Math.max(minLat, oLat + 2.65);
+      }
+      if (Math.abs(gap) < 6.5) {
+        if (Math.abs(leadK) > 1 / 160 && Math.sign(leadK) * dLat > 0.5) outsideOf = true;
+      }
+      if (gap > 0 && gap < 45 && Math.abs(dLat) < 2.4 && (!ahead || gap < ahead.gap)) ahead = { car: o, gap, dLat };
     }
     let passTarget = null;
     let passWeight = 0;
@@ -70,27 +94,27 @@ export class AIDriver {
     if (ahead) {
       const closing = speed - ahead.car.physics.speed;
       const oLat = ahead.car.proj.lateral;
-      const roomLeft = hw - 1.1 - oLat;
-      const roomRight = oLat + hw - 1.1;
+      const roomLeft = Math.min(hw - 1.1, maxLat) - oLat;
+      const roomRight = oLat - Math.max(-(hw - 1.1), minLat);
       let side = roomLeft > roomRight ? 1 : -1;
       if (Math.abs(roomLeft - roomRight) < 1) side = ahead.dLat > 0 ? -1 : 1; // keep the side we're already on
       const room = side > 0 ? roomLeft : roomRight;
-      if (closing > 0.3 && room > 2.6) {
-        passTarget = oLat + side * 2.9;
-        passWeight = 1 - smoothstep(14, 40, ahead.gap);
+      const launchPhase = ph.distance < 260;
+      if (closing > 0.3 && room > 2.6 && !launchPhase) {
+        passTarget = oLat + side * 2.8;
+        passWeight = 1 - smoothstep(12, 40, ahead.gap);
       }
-      // time-to-contact braking when we can't get alongside in time
-      const lateralSep = passTarget == null ? Math.abs(ahead.dLat) : Math.abs(passTarget - myLat);
-      if (closing > 0.5) {
+      if (closing > 0.4) {
         const ttc = (ahead.gap - 5.5) / closing;
-        const blocked = passTarget == null || lateralSep > 1.6;
-        if (ttc < 1.6 && blocked) brakeForTraffic = clamp((1.6 - ttc) * 0.7, 0, 1);
+        const lateralSep = passTarget == null ? Math.abs(ahead.dLat) : Math.abs(passTarget - myLat);
+        if (ttc < 1.8 && (passTarget == null || lateralSep > 1.4)) brakeForTraffic = clamp((1.8 - ttc) * 0.6, 0, 1);
       }
     }
-    const repelTarget = clamp(repel, -3.2, 3.2);
-    this.avoid += (repelTarget - this.avoid) * (1 - Math.exp(-dt * 4));
+    const squeezed = minLat > maxLat;
     this.passTarget = passTarget;
     this.passWeight = passWeight;
+    this.minLat = minLat;
+    this.maxLat = maxLat;
 
     // --- mistakes: occasional small wobble for lower-skill drivers
     this.mistakeTimer -= dt;
@@ -109,7 +133,13 @@ export class AIDriver {
     const launched = ph.distance;
     if (launched < 450 && car.gridLateral != null) lineLat = lerp(car.gridLateral, lineLat, smoothstep(220, 450, launched));
     if (this.passTarget != null) lineLat = lerp(lineLat, this.passTarget, this.passWeight);
-    const lateral = clamp(lineLat + this.avoid + this.mistake, -lim, lim);
+    let wanted = lineLat + this.mistake;
+    wanted = squeezed ? (this.minLat + this.maxLat) / 2 : clamp(wanted, this.minLat, this.maxLat);
+    // limit how fast the aim point slides sideways (keeps steering smooth at speed)
+    if (this.aimLat == null || Math.abs(this.aimLat - car.proj.lateral) > 7) this.aimLat = clamp(car.proj.lateral, -lim, lim);
+    const aimRate = (4 + speed * 0.05) * dt;
+    this.aimLat += clamp(wanted - this.aimLat, -aimRate, aimRate);
+    const lateral = clamp(this.aimLat, -lim, lim);
     const tx = t.px[j] + t.lx[j] * lateral;
     const tz = t.pz[j] + t.lz[j] * lateral;
     const dx = tx - ph.x;
@@ -132,6 +162,13 @@ export class AIDriver {
     // --- speed: follow the profile a little ahead, scaled by skill
     const lead = (i + Math.round((6 + speed * 0.35) / t.ds)) % n;
     let target = Math.min(profile[lead], profile[(lead + 4) % n]) * this.skill;
+    // leave margin in company: brake a touch earlier, yield on the outside, lift when squeezed
+    if (company && target < speed - 2) target *= ph.distance < 1200 ? 0.93 : 0.97; // extra care into turn 1 on lap one
+    if (outsideOf) target *= 0.95;
+    if (squeezed) target = Math.min(target, speed * 0.92);
+    // pushed off the racing line in a corner → tighter effective radius → slower
+    const offLine = Math.abs((this.aimLat ?? 0) - t.lineOffset[lead]);
+    if (offLine > 1.2 && Math.abs(leadK) > 1 / 300) target *= 1 - Math.min(0.14, 0.03 * (offLine - 1.2));
     if (ph.surfaceFront >= 2 || ph.surfaceRear >= 2) target = Math.min(target, 30);
     const err = target - speed;
     let throttle = clamp(err * 0.45 + 0.35, 0, 1);
@@ -139,9 +176,13 @@ export class AIDriver {
     if (brake > 0) throttle = 0;
     brake = Math.max(brake, brakeForTraffic);
     if (brakeForTraffic > 0) throttle *= 0.4;
-    // traction control
+    // traction control and slide recovery: ease off the pedals so the tyres bite again
     if (ph.wheelspin > 0.25) throttle *= 0.6;
-    if (Math.abs(ph.beta) > 0.25) throttle *= 0.5;
+    const slide = Math.abs(ph.beta);
+    if (slide > 0.12) {
+      throttle *= 0.35;
+      brake *= 0.4;
+    }
     input.throttle = throttle;
     input.brake = brake;
     input.handbrake = false;

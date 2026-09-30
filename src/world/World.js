@@ -172,7 +172,7 @@ export class World {
     this.sky.update(dt, camera.position);
     this.lighting.update(focus, forward);
     updateFogSun(camera, this.sunDir);
-    this.vegetation.update(this.time);
+    this.vegetation.update(this.time, camera);
     this.props.update(dt, this.time);
     const n = this.waterMaterial.normalMap;
     n.offset.x = (this.time * 0.004) % 1;

@@ -125,6 +125,55 @@ export function createBroadleafGeometry(seed = 5) {
   return geo;
 }
 
+/** Far-distance stand-ins: same silhouette and colouring, a fraction of the triangles. */
+function createPineGeometryLow() {
+  const parts = [];
+  const layers = [
+    [2.3, 4.4, 3.4],
+    [1.6, 3.6, 5.4],
+    [0.85, 2.8, 7.3],
+  ];
+  layers.forEach(([r, h, y], li) => {
+    const cone = new THREE.ConeGeometry(r, h, 6, 1, true);
+    cone.translate(0, y, 0);
+    const base = y - h / 2;
+    colorize(cone, (x, yy, z, c) => {
+      const t = clamp((yy - base) / h, 0, 1);
+      const lift = li / layers.length;
+      c.setRGB(0.08 + 0.07 * t + 0.03 * lift, 0.2 + 0.12 * t + 0.05 * lift, 0.09 + 0.05 * t, THREE.SRGBColorSpace);
+    });
+    parts.push(stripUv(cone));
+  });
+  const geo = mergeGeometries(parts);
+  geo.computeBoundingSphere();
+  return geo;
+}
+
+function createBroadleafGeometryLow() {
+  const parts = [];
+  const trunk = new THREE.CylinderGeometry(0.14, 0.26, 3.4, 4, 1, true);
+  trunk.translate(0, 1.7, 0);
+  colorize(trunk, (x, y, z, c) => c.setRGB(0.25, 0.19, 0.13, THREE.SRGBColorSpace));
+  parts.push(stripUv(trunk));
+  for (const [bx, by, bz, r] of [
+    [0, 4.8, 0, 2.5],
+    [0.3, 6.0, -0.2, 1.8],
+  ]) {
+    const ico = new THREE.IcosahedronGeometry(r, 0);
+    ico.scale(1, 0.85, 1);
+    ico.translate(bx, by, bz);
+    colorize(ico, (x, y, z, c) => {
+      const t = clamp((y - (by - r)) / (2 * r), 0, 1);
+      c.setRGB(0.12 + 0.12 * t, 0.24 + 0.16 * t, 0.08 + 0.04 * t, THREE.SRGBColorSpace);
+    });
+    parts.push(stripUv(ico));
+  }
+  const geo = mergeGeometries(parts);
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  return geo;
+}
+
 function createRockGeometry(seed = 9) {
   const rand = mulberry32(seed);
   const noise = createNoise2D(seed);
@@ -211,7 +260,7 @@ export function buildVegetation(track, terrain, opts = {}) {
   const xMax = track.maxX + 650;
   const zMin = track.minZ - 600;
   const zMax = track.maxZ + 600;
-  const CELL = 220;
+  const CELL = 300;
   const cols = Math.ceil((xMax - xMin) / CELL);
   const buckets = new Map();
   const bucket = (x, z, kind) => {
@@ -295,20 +344,37 @@ export function buildVegetation(track, terrain, opts = {}) {
 
   const meshes = { pine: [], leaf: [], rock: [], grass: [] };
   const geos = { pine: pineGeo, leaf: leafGeo, rock: rockGeo };
+  const lowGeos = { pine: createPineGeometryLow(), leaf: createBroadleafGeometryLow() };
   const matsBy = { pine: treeMat, leaf: treeMat, rock: rockMat };
-  for (const b of buckets.values()) {
-    const mesh = new THREE.InstancedMesh(geos[b.kind], matsBy[b.kind], b.list.length);
-    b.list.forEach((it, k) => {
+  const lodPairs = [];
+  const makeInstanced = (geo, mat, list) => {
+    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((it, k) => {
       mesh.setMatrixAt(k, it.m);
       mesh.setColorAt(k, it.c);
     });
-    mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
-    mesh.userData.full = b.list.length;
+    mesh.userData.full = list.length;
     group.add(mesh);
+    return mesh;
+  };
+  for (const b of buckets.values()) {
+    const mesh = makeInstanced(geos[b.kind], matsBy[b.kind], b.list);
+    mesh.castShadow = true;
     meshes[b.kind].push(mesh);
+    if (lowGeos[b.kind]) {
+      const low = makeInstanced(lowGeos[b.kind], matsBy[b.kind], b.list);
+      low.castShadow = false;
+      low.visible = false;
+      low.userData.isLow = true;
+      meshes[b.kind].push(low);
+      lodPairs.push({ hi: mesh, lo: low });
+    }
   }
+  const LOD_DIST = 230;
+  let lodTimer = 0;
+  let shadowsOn = true;
 
   // Grass tufts beyond the barriers, swaying in the wind.
   const grassTex = createGrassTexture();
@@ -374,7 +440,7 @@ export function buildVegetation(track, terrain, opts = {}) {
     s.set(scale, scale * (0.7 + rand() * 0.6), scale);
     m4.compose(p, q, s);
     terrain.colorAt(x, z, y, 0.05, 0.4, _c);
-    const key = `${Math.floor((x - xMin) / 120)}:${Math.floor((z - zMin) / 120)}`;
+    const key = `${Math.floor((x - xMin) / 200)}:${Math.floor((z - zMin) / 200)}`;
     let list = grassBuckets.get(key);
     if (!list) grassBuckets.set(key, (list = []));
     list.push({ m: m4.clone(), c: new THREE.Color(_c.r * 1.25, _c.g * 1.45, _c.b * 1.2) });
@@ -399,8 +465,21 @@ export function buildVegetation(track, terrain, opts = {}) {
     meshes,
     treeCount: placed,
     grassMaterial: grassMat,
-    update(time) {
+    update(time, camera) {
       grassUniforms.time.value = time;
+      if (!camera) return;
+      lodTimer -= 1;
+      if (lodTimer > 0) return;
+      lodTimer = 10;
+      const cp = camera.position;
+      for (const { hi, lo } of lodPairs) {
+        const bs = hi.boundingSphere;
+        const d = Math.max(0, cp.distanceTo(bs.center) - bs.radius);
+        const near = d < LOD_DIST;
+        hi.visible = near;
+        lo.visible = !near;
+        hi.castShadow = shadowsOn && near;
+      }
     },
     /** Scale instance counts for quality presets (0..1). */
     setDensity(trees, grass) {
@@ -411,7 +490,9 @@ export function buildVegetation(track, terrain, opts = {}) {
       }
     },
     setShadows(enabled) {
-      for (const k of ['pine', 'leaf', 'rock']) for (const m of meshes[k]) m.castShadow = enabled;
+      shadowsOn = enabled;
+      for (const k of ['pine', 'leaf', 'rock']) for (const m of meshes[k]) m.castShadow = enabled && !m.userData.isLow;
+      lodTimer = 0;
     },
   };
 }

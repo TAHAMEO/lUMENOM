@@ -5,6 +5,9 @@
 import { clamp, formatDelta, formatTime } from '../core/math.js';
 
 const $ = (id) => document.getElementById(id);
+const DISPLAY = '"Big Shoulders Display", "Arial Narrow", "Helvetica Neue", Arial, sans-serif';
+const DATA = '"Chivo Mono", ui-monospace, Menlo, Consolas, monospace';
+const UI = '"Saira Semi Condensed", "Segoe UI", Arial, sans-serif';
 
 function setupCanvas(canvas, cssSize) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -51,8 +54,6 @@ export class HUD {
     this.bigTimer = 0;
     this.towerTimer = 0;
     this.units = 'kmh';
-    this.fontsReady = false;
-    document.fonts?.ready.then(() => (this.fontsReady = true));
     this._last = {};
   }
 
@@ -275,7 +276,7 @@ export class HUD {
       ctx.stroke();
       if (major) {
         ctx.fillStyle = r >= red - 700 ? '#ff6b6b' : 'rgba(238,241,245,0.75)';
-        ctx.font = `600 ${Math.round(S * 0.05)}px ${this.fontsReady ? '"Chivo Mono"' : 'monospace'}`;
+        ctx.font = `600 ${Math.round(S * 0.05)}px ${DATA}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const rr = R - 10 - S * 0.1;
@@ -325,9 +326,9 @@ export class HUD {
     ctx.fillStyle = '#eef1f5';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.font = `900 ${Math.round(S * 0.25)}px ${this.fontsReady ? '"Big Shoulders Display"' : 'Impact, sans-serif'}`;
+    ctx.font = `900 ${Math.round(S * 0.25)}px ${DISPLAY}`;
     ctx.fillText(String(Math.round(v)), c, c + S * 0.1);
-    ctx.font = `600 ${Math.round(S * 0.042)}px ${this.fontsReady ? '"Saira Semi Condensed"' : 'sans-serif'}`;
+    ctx.font = `600 ${Math.round(S * 0.042)}px ${UI}`;
     ctx.fillStyle = 'rgba(149,160,179,0.95)';
     ctx.fillText(this.units === 'mph' ? 'MPH' : 'KM/H', c, c + S * 0.17);
     const gear = ph.reverse ? 'R' : ph.speed < 0.5 && ph.throttle < 0.05 ? 'N' : String(ph.gear);
@@ -337,9 +338,9 @@ export class HUD {
     const bw = S * 0.13;
     ctx.strokeRect(c - bw / 2, gy - bw * 0.62, bw, bw * 0.9);
     ctx.fillStyle = shift ? '#ff6b4d' : '#ffb21a';
-    ctx.font = `800 ${Math.round(S * 0.085)}px ${this.fontsReady ? '"Big Shoulders Display"' : 'Impact, sans-serif'}`;
+    ctx.font = `800 ${Math.round(S * 0.085)}px ${DISPLAY}`;
     ctx.fillText(gear, c, gy + bw * 0.13);
-    ctx.font = `600 ${Math.round(S * 0.034)}px ${this.fontsReady ? '"Chivo Mono"' : 'monospace'}`;
+    ctx.font = `600 ${Math.round(S * 0.034)}px ${DATA}`;
     ctx.fillStyle = 'rgba(149,160,179,0.8)';
     ctx.fillText('N₂O', c, c + S * 0.36);
   }

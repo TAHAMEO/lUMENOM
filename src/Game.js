@@ -7,6 +7,7 @@ import { World } from './world/World.js';
 import { createShadowBlobTexture, setMaxAnisotropy } from './world/textures.js';
 import { Car } from './vehicle/Car.js';
 import { PAINTS } from './vehicle/CarModel.js';
+import { WheelInstances } from './vehicle/WheelInstances.js';
 import { AIDriver, AI_CAPABILITY } from './ai/AIDriver.js';
 import { CameraRig } from './camera/CameraRig.js';
 import { Input } from './core/Input.js';
@@ -78,6 +79,7 @@ export class Game {
     progress(0.96, 'Rolling out the cars');
     await new Promise((r) => setTimeout(r, 0));
     this.shadowTex = createShadowBlobTexture();
+    this.wheels = new WheelInstances(this.scene, RIVALS.length + 1);
     this.player = this._makeCar({
       id: 0,
       name: 'You',
@@ -156,6 +158,7 @@ export class Game {
     const car = new Car({ track: this.track, ...opts });
     car.model.attachContactShadow(this.shadowTex);
     this.scene.add(car.model.root);
+    this.wheels.register(car.model);
     return car;
   }
 
@@ -582,6 +585,7 @@ export class Game {
 
   _updateVisuals(dt) {
     for (const car of this.cars) car.syncVisual(this.paused ? 0 : dt);
+    this.wheels.update();
     const p = this.player;
     this.rig.update(dt, p);
     const ph = p.physics;

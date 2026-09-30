@@ -280,7 +280,7 @@ export class Terrain {
 
     const group = new THREE.Group();
     group.name = 'terrain';
-    const CH = 40;
+    const CH = 64;
     for (let cj = 0; cj < nz - 1; cj += CH) {
       for (let ci = 0; ci < nx - 1; ci += CH) {
         const ie = Math.min(nx - 1, ci + CH);
